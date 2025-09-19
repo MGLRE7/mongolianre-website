@@ -53,24 +53,24 @@
     </div>
 
     <script>
-        // These variables will be provided by Netlify's build process.
-        // We need to create a simple script to pass them from the build to the browser.
+        // These placeholder values will be replaced by Netlify during the build process.
         const SUPABASE_URL = '%SUPABASE_URL%';
         const SUPABASE_ANON_KEY = '%SUPABASE_ANON_KEY%';
 
         const statusElement = document.getElementById('status' );
 
         try {
-            // Check if the placeholder values have been replaced.
+            // Check if the placeholder values have been replaced by Netlify's build command.
             if (SUPABASE_URL.startsWith('%') || SUPABASE_ANON_KEY.startsWith('%')) {
-                throw new Error("Environment variables not replaced by Netlify. Check netlify.toml.");
+                throw new Error("Environment variables were not replaced. This indicates a build issue in Netlify.");
             }
 
-            // Initialize the Supabase client
-            const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            // ** THIS IS THE CORRECTED LINE **
+            // Initialize the Supabase client using the global 'supabase' object
+            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // If the client initializes without error, the connection is successful.
-            console.log('Supabase client initialized:', supabase);
+            // If the client initializes without an error, the connection details are valid.
+            console.log('Supabase client initialized successfully:', supabaseClient);
             statusElement.textContent = '✅ Successfully connected to Supabase!';
             statusElement.className = 'success';
 
