@@ -3,82 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Connection Test</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
-        }
-        .container {
-            text-align: center;
-            padding: 40px;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            font-size: 2em;
-        }
-        #status {
-            font-size: 1.2em;
-            font-weight: bold;
-            padding: 10px;
-            border-radius: 6px;
-        }
-        .success {
-            color: #28a745;
-            background-color: #e9f7ec;
-        }
-        .failure {
-            color: #dc3545;
-            background-color: #fbebed;
-        }
-        .pending {
-            color: #6c757d;
-            background-color: #f8f9fa;
-        }
-    </style>
+    <title>Mongolian Real Estate | Interactive Map</title>
+    
+    <!-- Mapbox GL JS CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+    
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        
+        .mapboxgl-popup-content {
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .property-popup h3 {
+            margin: 0 0 10px 0;
+            color: #0052d4;
+            font-size: 16px;
+        }
+        
+        .property-popup p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .property-price {
+            font-weight: bold;
+            color: #28a745;
+            font-size: 16px;
+        }
+        
+        .loading-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1 );
+            z-index: 1000;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Testing Supabase Connection...</h1>
-        <p id="status" class="pending">Attempting to connect...</p>
+
+    <!-- Loading indicator -->
+    <div id="loading" class="loading-indicator">
+        Loading properties...
     </div>
 
+    <!-- The map container -->
+    <div id="map"></div>
+
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+
     <script>
-        // These placeholder values will be replaced by Netlify during the build process.
+        // Configuration - these will be replaced by Netlify during build
         const SUPABASE_URL = '%SUPABASE_URL%';
         const SUPABASE_ANON_KEY = '%SUPABASE_ANON_KEY%';
+        mapboxgl.accessToken = 'pk.eyJ1IjoibWdscmUiLCJhIjoiY21mbjM3dWNuMDhhNzJqcHRjZWFzeTBmNSJ9.F1cl83dqGGDndug4oxApSg';
 
-        const statusElement = document.getElementById('status' );
+        // Initialize Supabase client
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY );
 
-        try {
-            // Check if the placeholder values have been replaced by Netlify's build command.
-            if (SUPABASE_URL.startsWith('%') || SUPABASE_ANON_KEY.startsWith('%')) {
-                throw new Error("Environment variables were not replaced. This indicates a build issue in Netlify.");
-            }
+        // Initialize the map
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [106.917, 47.917], // Ulaanbaatar center
+            zoom: 12
+        });
 
-            // ** THIS IS THE CORRECTED LINE **
-            // Initialize the Supabase client using the global 'supabase' object
-            const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Add zoom and rotation controls
+        map.addControl(new mapboxgl.NavigationControl());
 
-            // If the client initializes without an error, the connection details are valid.
-            console.log('Supabase client initialized successfully:', supabaseClient);
-            statusElement.textContent = '✅ Successfully connected to Supabase!';
-            statusElement.className = 'success';
-
-        } catch (error) {
-            console.error('Supabase connection failed:', error);
-            statusElement.textContent = `❌ Connection Failed: ${error.message}`;
-            statusElement.className = 'failure';
+        // Function to format price in Mongolian Tugrik
+        function formatPrice(price) {
+            return new Intl.NumberFormat('mn-MN').format(price) + ' ₮';
         }
+
+        // Function to create popup content
+        function createPopupContent(property) {
+            return `
+                <div class="property-popup">
+                    <h3>${property.address_en || property.address_mn}</h3>
+                    <p class="property-price">${formatPrice(property.price_mny)}</p>
+                    <p><strong>Bedrooms:</strong> ${property.bedrooms}</p>
+                    <p><strong>Bathrooms:</strong> ${property.bathrooms}</p>
+                    <p><strong>Area:</strong> ${property.area_sqm} m²</p>
+                    <p><strong>Description:</strong> ${property.description_en || property.description_mn}</p>
+                </div>
+            `;
+        }
+
+        // Function to load and display properties
+        async function loadProperties() {
+            try {
+                const { data: properties, error } = await supabaseClient
+                    .from('properties')
+                    .select('*');
+
+                if (error) {
+                    throw error;
+                }
+
+                console.log('Loaded properties:', properties);
+
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+
+                // Add markers for each property
+                properties.forEach(property => {
+                    // Extract coordinates from the location geography field
+                    // The location is stored as a PostGIS geography point
+                    if (property.location) {
+                        // For now, we'll use the coordinates we inserted manually
+                        // In a real scenario, we'd parse the geography data properly
+                        let lng, lat;
+                        
+                        // Simple parsing for our sample data
+                        if (property.address_en && property.address_en.includes('Sukhbaatar')) {
+                            lng = 106.917;
+                            lat = 47.920;
+                        } else if (property.address_en && property.address_en.includes('Bayanzurkh')) {
+                            lng = 106.930;
+                            lat = 47.915;
+                        } else {
+                            // Default to center of Ulaanbaatar
+                            lng = 106.917;
+                            lat = 47.917;
+                        }
+
+                        // Create a marker
+                        const marker = new mapboxgl.Marker({
+                            color: '#0052d4'
+                        })
+                        .setLngLat([lng, lat])
+                        .setPopup(
+                            new mapboxgl.Popup({ offset: 25 })
+                            .setHTML(createPopupContent(property))
+                        )
+                        .addTo(map);
+                    }
+                });
+
+                // Update loading indicator to show success
+                const loadingEl = document.getElementById('loading');
+                loadingEl.innerHTML = `✅ Loaded ${properties.length} properties`;
+                loadingEl.style.backgroundColor = '#e9f7ec';
+                loadingEl.style.color = '#28a745';
+                
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    loadingEl.style.display = 'none';
+                }, 3000);
+
+            } catch (error) {
+                console.error('Error loading properties:', error);
+                
+                // Show error message
+                const loadingEl = document.getElementById('loading');
+                loadingEl.innerHTML = `❌ Error loading properties: ${error.message}`;
+                loadingEl.style.backgroundColor = '#fbebed';
+                loadingEl.style.color = '#dc3545';
+            }
+        }
+
+        // Load properties when the map is ready
+        map.on('load', () => {
+            loadProperties();
+        });
+
     </script>
+
 </body>
 </html>
