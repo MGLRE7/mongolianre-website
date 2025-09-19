@@ -3,56 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mongolian Real Estate | Map</title>
-    
-    <!-- Mapbox GL JS CSS -->
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
-    
+    <title>Supabase Connection Test</title>
     <style>
         body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
             margin: 0;
-            padding: 0;
+            background-color: #f0f2f5;
         }
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
+        .container {
+            text-align: center;
+            padding: 40px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
-        .marker {
-            background-image: url('https://docs.mapbox.com/mapbox-gl-js/assets/washington-monument.jpg' );
-            background-size: cover;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            cursor: pointer;
+        h1 {
+            font-size: 2em;
+        }
+        #status {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .success {
+            color: #28a745;
+            background-color: #e9f7ec;
+        }
+        .failure {
+            color: #dc3545;
+            background-color: #fbebed;
+        }
+        .pending {
+            color: #6c757d;
+            background-color: #f8f9fa;
         }
     </style>
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
-    <!-- The map container -->
-    <div id="map"></div>
-
-    <!-- Mapbox GL JS -->
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <div class="container">
+        <h1>Testing Supabase Connection...</h1>
+        <p id="status" class="pending">Attempting to connect...</p>
+    </div>
 
     <script>
-        // Your public access token
-        mapboxgl.accessToken = 'pk.eyJ1IjoibWdscmUiLCJhIjoiY21mbjM3dWNuMDhhNzJqcHRjZWFzeTBmNSJ9.F1cl83dqGGDndug4oxApSg';
+        // These variables will be provided by Netlify's build process.
+        // We need to create a simple script to pass them from the build to the browser.
+        const SUPABASE_URL = '%SUPABASE_URL%';
+        const SUPABASE_ANON_KEY = '%SUPABASE_ANON_KEY%';
 
-        // Initialize the map
-        const map = new mapboxgl.Map({
-            container: 'map', // container ID
-            style: 'mapbox://styles/mapbox/streets-v12', // standard street map style
-            center: [106.917, 47.917], // starting position [lng, lat] for Ulaanbaatar
-            zoom: 12 // starting zoom
-        } );
+        const statusElement = document.getElementById('status' );
 
-        // Add zoom and rotation controls to the map.
-        map.addControl(new mapboxgl.NavigationControl());
+        try {
+            // Check if the placeholder values have been replaced.
+            if (SUPABASE_URL.startsWith('%') || SUPABASE_ANON_KEY.startsWith('%')) {
+                throw new Error("Environment variables not replaced by Netlify. Check netlify.toml.");
+            }
 
+            // Initialize the Supabase client
+            const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            // If the client initializes without error, the connection is successful.
+            console.log('Supabase client initialized:', supabase);
+            statusElement.textContent = '✅ Successfully connected to Supabase!';
+            statusElement.className = 'success';
+
+        } catch (error) {
+            console.error('Supabase connection failed:', error);
+            statusElement.textContent = `❌ Connection Failed: ${error.message}`;
+            statusElement.className = 'failure';
+        }
     </script>
-
 </body>
 </html>
